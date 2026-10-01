@@ -270,15 +270,55 @@ class OpenAIGenerator:
                 "OPENAI_API_KEY and OPENAI_MODEL in .env"
             )
         self.max_output_tokens = max_output_tokens
+        self._last_gemini_request_at: float | None = None
+        self._gemini_min_request_interval_seconds = 15.0
 
     def generate(self, prompt: str) -> str:
         if self.provider == "gemini":
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=self.max_output_tokens,
-            )
-            answer_text = response.choices[0].message.content
+            retry_attempt = 0
+            while True:
+                if self._last_gemini_request_at is not None:
+                    elapsed = time.monotonic() - self._last_gemini_request_at
+                    delay = self._gemini_min_request_interval_seconds - elapsed
+                    if delay > 0:
+                        time.sleep(delay)
+                self._last_gemini_request_at = time.monotonic()
+                try:
+                    reasoning_effort = (
+                        "none" if self.model.startswith("gemini-2.5") else "low"
+                    )
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{"role": "user", "content": prompt}],
+                        reasoning_effort=reasoning_effort,
+                        max_tokens=max(self.max_output_tokens, 600),
+                    )
+                    break
+                except OpenAIError as exc:
+                    status_code = getattr(exc, "status_code", None)
+                    error_text = str(exc)
+                    if status_code == 429 and "PerDay" in error_text:
+                        raise
+                    if status_code not in {429, 503} or retry_attempt >= 3:
+                        raise
+
+                    retry_after = re.search(
+                        r"Please retry in\s+([\d.]+)s", error_text
+                    )
+                    if retry_after:
+                        retry_delay = float(retry_after.group(1)) + 1.0
+                    else:
+                        retry_delay = 20.0 * (2**retry_attempt)
+                    time.sleep(retry_delay)
+                    retry_attempt += 1
+
+            choice = response.choices[0]
+            if choice.finish_reason == "length":
+                raise RuntimeError(
+                    "Gemini response reached its output-token limit; "
+                    "no complete answer was returned"
+                )
+            answer_text = choice.message.content
             answer = answer_text.strip() if isinstance(answer_text, str) else ""
         else:
             response = self.client.responses.create(
