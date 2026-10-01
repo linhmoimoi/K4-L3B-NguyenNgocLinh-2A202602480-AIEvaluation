@@ -30,11 +30,11 @@ critical.
 
 | Metric | Acceptable Low Score Scenario | Critical Low Score Scenario | Action Required |
 |---|---|---|---|
-| Faithfulness | | | |
-| Answer Relevance | | | |
-| Context Recall | | | |
-| Context Precision | | | |
-| Completeness | | | |
+| Faithfulness | A few low scores on ambiguous or out-of-scope questions may be acceptable when the assistant clearly abstains and makes no unsupported claim; inspect the examples because overlap heuristics can mis-score concise answers. | Low scores on product, payment, warranty, privacy, or safety answers may indicate invented or unsupported claims. | Inspect answer claims against retrieved evidence; block unsupported policy or safety claims and improve grounding/prompting. |
+| Answer Relevance | A low score on an intentionally broad or ambiguous question may reflect a necessary clarification request. | Repeated low scores on clear requests, such as order status or refund eligibility, mean the assistant is answering the wrong intent. | Review question-answer pairs; improve intent handling and add representative regression cases. |
+| Context Recall | A lower score may be acceptable when the question needs only one fact and omitted gold context is redundant or unrelated to that fact. | Low recall when the answer depends on an exception, a date, or evidence from multiple documents risks an incomplete or incorrect answer. | Inspect missing evidence in traces; improve retrieval/query coverage and add multi-document cases. |
+| Context Precision | Some irrelevant retrieved chunks may be tolerable if the needed evidence is ranked near the top and does not distract generation. | Low precision with relevant evidence buried below noisy chunks can mislead generation and reduce faithfulness. | Inspect rank order and noise; tune retrieval/reranking and monitor precision alongside recall. |
+| Completeness | A lower score may be acceptable when the user asks for only one part of a topic or the safe response is to request clarification. | Low scores on multi-part questions or answers omitting material conditions, fees, deadlines, or exceptions can mislead customers. | Compare each requested element with the answer and gold evidence; improve answer coverage and test exceptions. |
 
 ### Exercise 1.2 — Bias trong LLM-as-a-Judge
 
@@ -46,15 +46,15 @@ Ba bias thường gặp:
 
 **Câu 1: Thiết kế experiment phát hiện position bias với ít nhất hai conditions.**
 
-> *Câu trả lời:*
+> Dùng cùng một bộ cặp câu trả lời A/B có chất lượng đã được người chấm xác nhận. Ở condition 1, đưa A trước B; ở condition 2, đảo thành B trước A, giữ nguyên prompt, rubric và nội dung. Lặp lại nhiều cặp với thứ tự ngẫu nhiên và chấm mù. So sánh điểm và tỷ lệ thắng của từng câu trả lời giữa hai condition; nếu câu trả lời đứng đầu thường được ưu tiên dù chất lượng không đổi, đó là dấu hiệu position bias. Có thể thêm condition lặp lại cùng một answer ở cả hai vị trí để đo mức độ nhất quán.
 
 **Câu 2: Làm thế nào giảm verbosity bias bằng rubric design?**
 
-> *Câu trả lời:*
+> Chấm theo tiêu chí quan sát được như tính đúng, đủ ý, bằng chứng và an toàn; không thưởng riêng cho độ dài hay văn phong hoa mỹ. Nêu rõ câu trả lời ngắn vẫn đạt điểm tối đa nếu bao phủ đủ yêu cầu, còn phần dài nhưng lặp ý hoặc không có bằng chứng không được cộng điểm và có thể bị trừ nếu gây hiểu nhầm. Dùng ví dụ chuẩn ở từng mức điểm để hai judge áp dụng giống nhau.
 
 **Câu 3: Tại sao cần calibrate LLM judge với human labels?**
 
-> *Câu trả lời:*
+> So sánh điểm của judge với nhãn do người chấm có hướng dẫn độc lập tạo ra trên một tập đại diện, gồm cả câu trả lời tốt, kém và edge cases. Calibration cho biết judge có chấm lệch hệ thống, nhầm tiêu chí hoặc thiên vị độ dài/vị trí hay không; từ đó có thể chỉnh rubric và ngưỡng. Giữ một tập kiểm tra riêng để theo dõi chất lượng sau mỗi lần đổi model hoặc prompt.
 
 ### Exercise 1.3 — Evaluation trong CI/CD
 
@@ -62,13 +62,13 @@ Ba bias thường gặp:
 
 | Metric | Threshold | Lý do |
 |---|---:|---|
-| Faithfulness | | |
-| Answer Relevance | | |
-| Completeness | | |
+| Faithfulness | 0.90 | Ưu tiên chặn câu trả lời thiếu grounding vì thông tin sai về giá, đơn hàng, bảo hành hoặc quyền riêng tư gây hại trực tiếp. |
+| Answer Relevance | 0.70 | Chặn các bản thay đổi khiến assistant thường xuyên không trả lời đúng ý định người dùng. |
+| Completeness | 0.80 | Giảm nguy cơ bỏ sót điều kiện, phí, mốc thời gian hoặc ngoại lệ quan trọng. |
 
 **Câu 2: Khi nào dùng offline evaluation, online evaluation và human review?**
 
-> *Câu trả lời:*
+> Chạy offline evaluation trên golden dataset cố định cho mỗi pull request và thay đổi prompt/model/retriever; so metric theo từng nhóm câu hỏi và giữ các case adversarial trong quality gate. Dùng ngưỡng ở trên cho trung bình từng metric, đồng thời chặn nếu có claim nghiêm trọng không được evidence hỗ trợ, kể cả khi trung bình vẫn đạt. Online evaluation dùng sau triển khai canary/shadow để theo dõi traffic thực, drift, tỷ lệ escalation và feedback mà không đưa dữ liệu nhạy cảm vào log. Human review dùng cho case rủi ro cao, câu trả lời bị khiếu nại, bất đồng giữa judge và metric, và một mẫu ngẫu nhiên định kỳ để hiệu chỉnh judge. Không dùng một ngưỡng `overall_score` mới thay cho công thức đã định nghĩa; theo dõi từng metric riêng.
 
 ---
 
