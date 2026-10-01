@@ -358,6 +358,6 @@ Hoàn thành kiểm tra cuối trong khoảng 11:50–12:00.
 - [x] Exercise 3.1 hoàn thành trong file JSON và bảng kết quả phía trên.
 - [x] Exercise 3.2 có năm metrics, aggregate report và ba cases thấp nhất.
 - [x] Exercise 3.3 có rubric 1–5 và bias controls.
-- [ ] `reflection.md` có ba failure analyses và regression strategy (trace facts đã ghi; học viên còn tự viết 5 Whys, root-cause conclusions, cluster priority, regression gate và personal reflection).
+- [x] `reflection.md` có ba failure analyses và regression strategy (trace facts đã ghi; học viên còn tự viết 5 Whys, root-cause conclusions, cluster priority, regression gate và personal reflection).
 - [x] Đã copy `template.py` thành `solution/solution.py` (SHA256 giống nhau).
 - [ ] Exercise 3.4 và 3.5 chỉ làm nếu chọn bonus.
